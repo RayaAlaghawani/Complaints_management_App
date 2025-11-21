@@ -11,20 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('complaints', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->nullable();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('government_agencie_id')
                 ->nullable()
                 ->constrained('government_agencies')
                 ->onDelete('cascade');
-         //   $table->string('last_name')->nullable();
-            $table->string('email')->nullable()->nullable()->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('phone')->nullable()->unique();
-            $table->string('national_id')->nullable()->unique();
-            $table->rememberToken();
+            $table->string('title');
+            $table->text('description');
+            $table->string('attachment_path')->nullable()->comment('مسار حفظ الملف المرفق (صورة/ملف)');
+            $table->enum('status', ['Pending', 'In Progress', 'Resolved', 'Rejected'])->default('Pending');
             $table->timestamps();
         });
     }
@@ -34,6 +31,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('complaints');
     }
 };

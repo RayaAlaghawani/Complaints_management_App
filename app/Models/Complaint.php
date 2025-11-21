@@ -5,16 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class EmailVerification extends Model
+class Complaint extends Model
 {
     use HasFactory;
 
+
     protected $fillable = [
         'user_id',
-        'code',
-        'expires_at',
+        'department',
+        'title',
+        'description',
+        'attachment_path',
+        'status',
+        'resolved_at',
     ];
 
+    /**
+     * العلاقة: الشكوى تنتمي إلى مستخدم واحد (المواطن).
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
