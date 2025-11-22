@@ -25,9 +25,12 @@ Route::post('login', [CitizenAuthController::class, 'login'])->
 middleware('role.throttle');
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/complaints', [ComplaintController::class, 'store']);
-      //  ->middleware('can:submit_complaint');
+        Route::get('/showALL', [ComplaintController::class, 'showALL']);
+    Route::post('/updateStatus', [ComplaintController::class, 'updateStatus']);
+    Route::post('/AddNote', [ComplaintController::class, 'AddNote']);
     Route::post('logout',[CitizenAuthController::class,'logout']);
     Route::post('add_employee', [\App\Http\Controllers\EmployeeController::class,
-        'add_employee'])->name('add_employee')->middleware('can:add_employee');
+        'add_employee']);
+        //->name('add_employee')->middleware('can:add_employee');
 });
 

@@ -48,5 +48,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Complaint::class);
     }
+    public function government_agencie()
+    {
+        return $this->belongsTo(Government_agencie::class);
+    }
 
 }

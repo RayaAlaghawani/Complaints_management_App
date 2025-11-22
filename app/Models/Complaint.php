@@ -12,12 +12,17 @@ class Complaint extends Model
 
     protected $fillable = [
         'user_id',
-        'department',
+        'note',
         'title',
+        'locked_by' ,
+        'locked_at' ,
+        'lock_expires_at' ,
+
         'description',
         'attachment_path',
         'status',
         'resolved_at',
+        'government_agencie_id'
     ];
 
     /**
