@@ -2,139 +2,126 @@
 
 namespace App\Services;
 
-use App\Http\Requests\ComplaintRequest;
-use App\Http\Requests\UpdateComplaint;
 use App\Models\Complaint;
-use App\Repositories\ComplaintRepository;
-use App\Repositories\userRepository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Exception;
-use function PHPUnit\Framework\isEmpty;
 
 class ComplaintService
 {
-    public function __construct(ComplaintRepository $repository)
+    public function submitComplaint(array $data, $userId, $attachment = null)
     {
-        $this->repository = $repository;
-    }
-
-    public function submitComplaint(array $data, int $userId, ?UploadedFile $attachment): Complaint
-    {
-        DB::beginTransaction();
-        $attachmentPath = null;
-
-        try {
-
-            if ($attachment) {
-                // حفظ الملف في مجلد 'complaints/attachments' في قرص 'public'
-                $attachmentPath = $attachment->store('complaints/attachments', 'public');
-            }
-
-            $complaint = Complaint::create([
-                'user_id' => $userId,
-                'government_agencie_id' => $data['government_agencie_id'],
-                'title' => $data['title'],
-                'description' => $data['description'],
-                'attachment_path' => $attachmentPath,
-                'status' => 'Pending',
-            ]);
-
-            DB::commit();
-            return $complaint;
-
-        } catch (Exception $e) {
-            DB::rollBack();
-            if ($attachmentPath) {
-                Storage::disk('public')->delete($attachmentPath);
-            }
-            throw new Exception('فشل في إرسال الشكوى. يرجى المحاولة لاحقاً: ' . $e->getMessage());
+        // رفع الملف إذا موجود
+        // رفع الملف إذا موجود
+        if ($attachment) {
+            // يجب تحديد القرص public ليصبح الوصول ممكناً عبر /storage
+            $data['attachment_path'] = $attachment->store('complaints', 'public');
         }
+
+        // إزالة المفتاح 'attachment' لأنه ليس عمودًا فعليًا
+        unset($data['attachment']);
+
+        // إضافة صاحب الشكوى
+        $data['user_id'] = $userId;
+
+        // إنشاء الشكوى
+        $complaint = Complaint::create($data);
+
+        // إضافة رابط URL مباشر للملف
+        $complaint->attachment_url = $data['attachment_path']
+            ? asset("storage/" . $data['attachment_path'])
+            : null;
+
+        return $complaint;
     }
-    //تعديل حالة الشكوى
-    public function updateStatus( UpdateComplaint $request)
+
+//    public function createComplaint($request)
+//    {
+//        $attachmentPath = null;
+//
+//        // حفظ الملف في storage/app/public/complaints
+//        if ($request->hasFile('attachment')) {
+//            $attachmentPath = $request->file('attachment')->store('complaints', 'public');
+//        }
+//
+//        // إنشاء الشكوى
+//        $complaint = Complaint::create([
+//            'government_agencie_id' => $request->government_agencie_id,
+//            'title' => $request->title,
+//            'description' => $request->description,
+//            'attachment_path' => $attachmentPath,
+//            'user_id' => auth()->id(),
+//        ]);
+//
+//        // إضافة رابط URL مباشر للصورة
+//        $complaint->attachment_url = $attachmentPath ? asset("storage/" . $attachmentPath) : null;
+//
+//        return $complaint;
+//    }
+
+
+    public function findComplaintById($id)
     {
-        $user = Auth::user();
-        $userId=$user->id;
-        $status = $request->status;
-        $id     = $request->id;
-        $complaint = null;
-        if (optional(!Auth::user())->hasRole('employee')) {
-            throw new \Exception('You do not have permission to edit the complaint.', 401);
-        }
-            DB::transaction(function () use ($user,$id, $status, $userId, &$complaint) {
-            $complaint =$this->repository->getById($user,$id );
-            if (!$complaint) {
-                throw new \Exception('the complaint is not found.');
-            }
-            if ($complaint->locked_by &&
-                $complaint->locked_by != $userId && $complaint->lock_expires_at > now()) {
-                throw new \Exception('the complaint is reserved by another user.', 429);
-            }
-            $complaint=  $this->repository->update($user,$id,$userId,$status);
-        });
-
-        return [
-            'data'    => $complaint,
-            'message' => 'the complaint has been successfully modified.',
-        ];
-            }
-
-//اضافة ملاجظة للشكوى
-    public function AddNote( UpdateComplaint$request)
+        return Complaint::find($id);
+    }
+//
+//    public function updateComplaint($complaint, $data, $attachment = null)
+//    {
+//        if ($attachment) {
+//            // حذف الملف القديم إذا كان موجود
+//            if ($complaint->attachment_path) {
+//                Storage::delete($complaint->attachment_path);
+//            }
+//            $data['attachment_path'] = $attachment->store('complaints');
+//        }
+//
+//        $complaint->update($data);
+//
+//        return $complaint;
+//    }
+    public function updateComplaint(Complaint $complaint, array $data, $attachment = null)
     {
-        $user = Auth::user();
-        $userId=$user->id;
-        $note = $request->note;
-        $id     = $request->id;
-        $complaint = null;
-        if (optional(!Auth::user())->hasRole('employee')) {
-            throw new \Exception('You do not have permission to edit the complaint.', 401);
+        if ($attachment) {
+            $data['attachment_path'] = $attachment->store('complaints', 'public');
         }
-        DB::transaction(function () use ($user,$id, $note, $userId, &$complaint) {
-            $complaint =$this->repository->getById($user,$id );
-            if (!$complaint) {
-                throw new \Exception('the complaint is not found.');
-            }
-            if ($complaint->locked_by &&
-                $complaint->locked_by != $userId && $complaint->lock_expires_at > now()) {
-                throw new \Exception('the complaint is reserved by another user.', 429);
-            }
-            $complaint=  $this->repository->addNote($user,$id,$userId,$note);
-        });
 
-        return [
-            'data'    => $complaint,
-            'message' => 'the complaint has been successfully modified.',
-        ];
+        unset($data['attachment']);
+        $complaint->update($data);
+
+        return $complaint;
     }
 
 
-public  function getAll(){
-    $user = Auth::user();
- //   $userId=$user->id;
-    if (optional(!Auth::user())->hasRole('employee')) {
-        throw new \Exception('You do not have permission to edit the complaint.', 401);
+
+
+
+
+//
+//
+//    public function getComplaintsByUser($userId)
+//    {
+//        return Complaint::where('user_id', $userId)
+//            ->orderBy('created_at', 'desc')
+//            ->get();
+//    }
+    public function getComplaintsByUser($userId)
+    {
+        $complaints = Complaint::where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // إضافة روابط الصور لكل شكوى
+        foreach ($complaints as $complaint) {
+            $complaint->attachment_url = $complaint->attachment_path
+                ? asset("storage/" . $complaint->attachment_path)
+                : null;
+        }
+
+        return $complaints;
     }
 
-    $complaint=$this->repository->getAll($user);
-    return [
-        'data'    => $complaint,
-        'message' => 'success.',
-    ];
+
 
 }
-
-
-
-
-
-
-
-
-
-
-
-    }

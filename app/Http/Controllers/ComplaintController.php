@@ -2,16 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Helpers\ResponseHelper;
 use App\Http\Requests\ComplaintRequest;
-use App\Http\Requests\UpdateComplaint;
-use App\Models\Complaint;
 use App\Services\ComplaintService;
-use Google\Rpc\Context\AttributeContext\Response;
 use Illuminate\Http\JsonResponse;
 use Exception;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class ComplaintController extends Controller
 {
@@ -33,69 +27,101 @@ class ComplaintController extends Controller
             $userId = auth()->id();
             $data = $request->validated();
             $attachment = $request->file('attachment');
+
             $complaint = $this->complaintService->submitComplaint($data, $userId, $attachment);
+
             return response()->json([
-                'message' => 'تم إرسال شكواك بنجاح. سيتم مراجعتها قريباً.',
+                'message' => 'تم إرسال الشكوى بنجاح.',
                 'complaint' => $complaint
             ], 201);
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'message' => 'حدث خطأ أثناء إرسال الشكوى.',
                 'error' => $e->getMessage()
             ], 500);
         }
     }
-//عرض الشكاوي للموظف
-    public function showALL( ){
-        $data=[];
-        try{
-            $data = $this->complaintService->getAll();
-            return ResponseHelper::Success($data['data'], $data['message']);
-        }catch(\Throwable $th)
-        {
-            $code = $th->getCode();
-            if ($code === 0) {
-                $code = 500;
-            }
-            return ResponseHelper::Error([], $th->getMessage(), $code);
-        }}
 
-    //تعديل حالة الشكوى
-    public function updateStatus(UpdateComplaint $request)
+
+
+    /**
+     * تعديل شكوى موجودة فقط إذا كانت مرفوضة.
+     */
+    public function updateRejectedComplaint(ComplaintRequest $request, $id): JsonResponse
     {
         try {
+            $userId = auth()->id();
 
-            $data = $this->complaintService->updateStatus($request);
+            // جلب الشكوى
+            $complaint = $this->complaintService->findComplaintById($id);
 
-            return ResponseHelper::Success($data['data'], $data['message']);
-
-        } catch (\Throwable $th) {
-
-            $code = $th->getCode();
-
-            if ($code === 0) {
-                $code = 500;
+            if (!$complaint) {
+                return response()->json(['message' => 'الشكوى غير موجودة.'], 404);
             }
 
-            return ResponseHelper::Error([], $th->getMessage(), $code);
+            // يجب أن تكون الشكوى مرفوضة
+            if ($complaint->status !== 'Rejected') {
+                return response()->json(['message' => 'لا يمكن تعديل هذه الشكوى إلا إذا كانت مرفوضة.'], 403);
+            }
+
+            // يجب أن يكون المستخدم هو صاحب الشكوى
+            if ($complaint->user_id !== $userId) {
+                return response()->json(['message' => 'لا يمكنك تعديل شكوى ليست لك.'], 403);
+            }
+
+            $data = $request->validated();
+            $attachment = $request->file('attachment');
+
+            // هذا السطر كان ناقص
+            $updatedComplaint = $this->complaintService->updateComplaint($complaint, $data, $attachment);
+
+            // إضافة رابط الصورة
+            if ($updatedComplaint->attachment_path) {
+                $updatedComplaint->attachment_url = asset('storage/' . $updatedComplaint->attachment_path);
+            } else {
+                $updatedComplaint->attachment_url = null;
+            }
+
+            return response()->json([
+                'message' => 'تم تعديل الشكوى بنجاح.',
+                'complaint' => $updatedComplaint
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء تعديل الشكوى.',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
-     //اضافة ملاحظة للشكوى
-    //نفسها طلب ملاحظات اضافية من المواطن بهذه الملاحظة
-    public function AddNote(UpdateComplaint $request){
-        $data=[];
-        try{
-            $data = $this->complaintService->AddNote($request);
-            return ResponseHelper::Success($data['data'], $data['message']);
-        }catch(\Throwable $th)
-        {
-            $code = $th->getCode();
-            if ($code === 0) {
-                $code = 500;
-            }
-            return ResponseHelper::Error([], $th->getMessage(), $code);
+
+
+
+
+
+    /**
+     * عرض جميع الشكاوى الخاصة بالمستخدم المسجل دخوله.
+     */
+    public function myComplaints(): JsonResponse
+    {
+        try {
+            $userId = auth()->id();
+
+            $complaints = $this->complaintService->getComplaintsByUser($userId);
+
+            return response()->json([
+                'message' => 'تم جلب الشكاوى الخاصة بك بنجاح.',
+                'complaints' => $complaints
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'حدث خطأ أثناء جلب الشكاوى.',
+                'error' => $e->getMessage()
+            ], 500);
         }
-}
+    }
+
 }

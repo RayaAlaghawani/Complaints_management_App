@@ -14,4 +14,10 @@ class Government_agencie extends Model
         return $this->hasMany(User::class);
     }
 
+
+    public function complaints()
+    {
+        return $this->hasMany(Complaint::class, 'government_agencie_id');
+    }
+
 }

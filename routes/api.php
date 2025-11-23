@@ -25,12 +25,15 @@ Route::post('login', [CitizenAuthController::class, 'login'])->
 middleware('role.throttle');
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/complaints', [ComplaintController::class, 'store']);
-        Route::get('/showALL', [ComplaintController::class, 'showALL']);
-    Route::post('/updateStatus', [ComplaintController::class, 'updateStatus']);
-    Route::post('/AddNote', [ComplaintController::class, 'AddNote']);
+      //  ->middleware('can:submit_complaint');
+    // عرض الشكاوى الخاصة بالمستخدم
+    Route::get('my-complaints', [ComplaintController::class, 'myComplaints']);
+
+    // تعديل شكوى مرفوضة
+    Route::post('update-rejected-complaints/{id}', [ComplaintController::class, 'updateRejectedComplaint']);
+
     Route::post('logout',[CitizenAuthController::class,'logout']);
     Route::post('add_employee', [\App\Http\Controllers\EmployeeController::class,
-        'add_employee']);
-        //->name('add_employee')->middleware('can:add_employee');
+        'add_employee'])->name('add_employee')->middleware('can:add_employee');
 });
 

@@ -9,21 +9,22 @@ class Complaint extends Model
 {
     use HasFactory;
 
+//
+//    protected $fillable = [
+//        'user_id',
+//        'department',
+//        'title',
+//        'description',
+//        'attachment_path',
+//        'status',
+//        'resolved_at',
+//        'government_agencie_id',
+//
+//    ];
 
-    protected $fillable = [
-        'user_id',
-        'note',
-        'title',
-        'locked_by' ,
-        'locked_at' ,
-        'lock_expires_at' ,
 
-        'description',
-        'attachment_path',
-        'status',
-        'resolved_at',
-        'government_agencie_id'
-    ];
+
+    protected $guarded = [];
 
     /**
      * العلاقة: الشكوى تنتمي إلى مستخدم واحد (المواطن).
@@ -32,4 +33,13 @@ class Complaint extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+
+
+
+    public function agency()
+    {
+        return $this->belongsTo(Government_agencie::class, 'government_agencie_id');
+    }
+
 }
